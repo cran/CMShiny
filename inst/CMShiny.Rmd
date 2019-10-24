@@ -1,0 +1,124 @@
+---
+title: "Confusion Matrix "
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(shinyMatrix)
+library(Matrix)
+library(epitools)
+library(caret)
+library(e1071)
+
+```
+
+```{r, echo=FALSE}
+sidebarPanel(h6("Edit the Predictive Classes (in Rows) and Actual Classes(in Columns)"),
+  uiOutput("mat"),
+  uiOutput("pos"),
+  plotOutput("CMVis"),
+  downloadButton("downloadPlot", "Download Confusion Matrix Plot"),
+  downloadButton("downloaddata", "Download dataset"))
+mainPanel(
+  #h6("Edit the Predictive Classes (in Rows) and Actual Classes(in Columns)"),
+ # uiOutput("mat"),
+ # uiOutput("pos"),
+#plotOutput("CMVis"),
+  verbatimTextOutput("results"),
+  
+  h6("", tags$img(src ="K.JPG", height= 400, width=400))
+
+  
+)
+
+output$mat <- renderUI({
+     matrixInput(
+       "myMatrix",
+       value = matrix(c(5,1,1,3),2,2,dimnames = list(c("Class1","Class2"),c("Class1","Class2"))),
+       
+       rows = list(names= TRUE,editableNames = TRUE),
+       cols = list( names = TRUE,editableNames = TRUE),
+       copy = TRUE,
+       paste = TRUE,
+       class = 'numeric'
+     )
+   })
+
+
+output$pos <- renderUI({
+     CT =  matrix(input$myMatrix,nrow = 2, ncol = 2)
+     row.names(CT) = row.names(input$myMatrix)
+     colnames(CT) = colnames(input$myMatrix)
+     dataset = expand.table(CT)
+     colnames(dataset)= c("Predicted","Actual")
+     selectInput("positive",label = "Select the Positive Class",choices = c(levels(dataset$Predicted)))
+})
+output$results <- renderPrint({
+     CT =  matrix(input$myMatrix,nrow = 2, ncol = 2)
+     
+     row.names(CT) = row.names(input$myMatrix)
+     colnames(CT) = colnames(input$myMatrix)
+     dataset = expand.table(CT)
+     colnames(dataset)= c("Predicted","Actual")
+    
+     print(confusionMatrix(dataset$Predicted,dataset$Actual,positive = input$positive ))
+     
+})
+output$CMVis <- renderPlot({
+     CT =  matrix(input$myMatrix,nrow = 2, ncol = 2)
+     row.names(CT) = row.names(input$myMatrix)
+     colnames(CT) = colnames(input$myMatrix)
+     dataset = expand.table(CT)
+     colnames(dataset)= c("Predicted","Actual")
+     
+ctable <- as.table(matrix(CT, nrow = 2, byrow = FALSE))
+fourfoldplot(ctable, color = c("#CC6666", "#99CC99"),
+             conf.level = 0, margin = 1, main = "Confusion Matrix")
+
+  # trellis.par.set(caretTheme())
+  # liftobj = lift(Actual~Predicted,data =  dataset)
+ #  plot(liftobj)
+ #  plot(liftobj,auto.key = list(columns =1,lines = TRUE,points = FALSE))
+})
+
+
+datasetInput1 <- reactive({
+      CT =  matrix(input$myMatrix,nrow = 2, ncol = 2)
+     row.names(CT) = row.names(input$myMatrix)
+     colnames(CT) = colnames(input$myMatrix)
+     dataset = expand.table(CT)
+     colnames(dataset)= c("Predicted","Actual")
+     dataset =  dataset
+
+
+   })
+   output$downloaddata <- downloadHandler(
+     filename = function() {
+       filetitle = paste("dataset")
+       paste(filetitle, ".csv", sep = "")
+     },
+     content = function(file) {
+
+       write.csv(datasetInput1(), file, row.names = FALSE)
+     }
+   )
+   
+  output$downloadPlot<- downloadHandler(
+     filename = function() {
+       paste("ConfusionMatPlot", ".png", sep = "")
+     },
+     content = function(file) {
+       png(file)
+        CT =  matrix(input$myMatrix,nrow = 2, ncol = 2)
+     row.names(CT) = row.names(input$myMatrix)
+     colnames(CT) = colnames(input$myMatrix)
+     dataset = expand.table(CT)
+     colnames(dataset)= c("Predicted","Actual")
+     
+ctable <- as.table(matrix(CT, nrow = 2, byrow = FALSE))
+fourfoldplot(ctable, color = c("#CC6666", "#99CC99"),
+             conf.level = 0, margin = 1, main = "Confusion Matrix")
+       dev.off()
+     }) 
